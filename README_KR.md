@@ -64,6 +64,8 @@ aws ssm create-document \
 
 ### 3단계: HA 클러스터 구성
 
+***[주의] HA 클러스터 설정 실행은 Node 1 에서만 SSM 문서 "명령 실행" 을 수행합니다.***   
+   
 ```bash
 # 인스턴스 정보 확인
 aws cloudformation describe-stacks \

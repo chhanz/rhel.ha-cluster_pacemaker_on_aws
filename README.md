@@ -64,6 +64,8 @@ aws ssm create-document \
 
 ### Step 3: Configure HA Cluster
 
+***[CAUTION] HA cluster setup execution performs SSM document "Run Command" only on Node 1.***   
+   
 ```bash
 # Check instance information
 aws cloudformation describe-stacks \
