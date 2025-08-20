@@ -2,6 +2,9 @@
 
 A solution for automatically configuring RHEL-based High Availability (HA) clusters on AWS.
 
+## For Korean
+This README is also available in Korean. Please use the Korean version, []`README_KR.md`](README_KR.md).
+
 ## Overview
 
 This project consists of two main components:
