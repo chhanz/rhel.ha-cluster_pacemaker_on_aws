@@ -71,7 +71,7 @@ aws cloudformation describe-stacks \
     --query 'Stacks[0].Outputs' \
     --region ap-northeast-2
 
-# Execute HA cluster setup
+# Execute HA cluster setup > Run SSM document command on one instance to be used as Node 1
 aws ssm send-command \
     --document-name "HA-Cluster-Setup" \
     --instance-ids "i-xxxxxxxxx" \

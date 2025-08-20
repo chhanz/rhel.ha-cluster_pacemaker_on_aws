@@ -71,7 +71,7 @@ aws cloudformation describe-stacks \
     --query 'Stacks[0].Outputs' \
     --region ap-northeast-2
 
-# HA 클러스터 설정 실행
+# HA 클러스터 설정 실행 > Node 1 로 사용될 인스턴스 한대에 대상으로 SSM 문서 명령 실행
 aws ssm send-command \
     --document-name "HA-Cluster-Setup" \
     --instance-ids "i-xxxxxxxxx" \
