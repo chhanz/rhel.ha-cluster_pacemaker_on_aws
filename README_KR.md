@@ -122,7 +122,7 @@ aws ssm send-command \
 - **STONITH 설정**: `fence_aws` 사용
 
 ### 네트워크 구성
-- **호스트 파일**: 자동 업데이트 (/etc/hosts)
+- **호스트 파일**: 자동 업데이트 (`/etc/hosts`)
 - **Ansible 인벤토리**: 동적 생성
 
 ## 파일 구조

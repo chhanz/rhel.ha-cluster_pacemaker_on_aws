@@ -115,7 +115,7 @@ aws ssm send-command \
 ### Automated Configuration
 - **System Updates**: Automatic update to latest packages
 - **User Creation**: Automatic haadm account creation
-- **Connect the Instance **: Configure to use Session Manager
+- **Connect the Instance**: Configure to use Session Manager
 - **Required Packages**: Install rhel-system-roles, AWS CLI, and other tools
 
 ### HA Cluster Setup
@@ -125,7 +125,7 @@ aws ssm send-command \
 - **STONITH Configuration**: Using `fence_aws`
 
 ### Network Configuration
-- **Host File**: Automatic update (/etc/hosts)
+- **Host File**: Automatic update (`/etc/hosts`)
 - **Ansible Inventory**: Dynamic generation
 
 ## File Structure
