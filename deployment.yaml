@@ -1,0 +1,276 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'RHEL HA Cluster Infrastructure with 2 instances'
+# Craeted by chhanz
+# https://chhanz.xyz
+# Version : 2025.08.20
+
+Parameters:
+  SameSubnet:
+    Type: String
+    Default: 'false'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: 'Deploy both instances in the same subnet (true) or different subnets (false)'
+
+Conditions:
+  UseSameSubnet: !Equals [!Ref SameSubnet, 'true']
+
+Resources:
+  # VPC
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: fast-aws-rh-vpc
+
+  # Internet Gateway
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: fast-aws-rh-igw
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  # Subnets
+  SubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: ap-northeast-2b
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: fast-aws-rh-subnet-b
+
+  SubnetD:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: ap-northeast-2d
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: fast-aws-rh-subnet-d
+
+  # Route Table
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: fast-aws-rh-rt
+
+  Route:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref RouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  SubnetRouteTableAssociationB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SubnetB
+      RouteTableId: !Ref RouteTable
+
+  SubnetRouteTableAssociationD:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SubnetD
+      RouteTableId: !Ref RouteTable
+
+  # Security Group
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for RHEL HA cluster
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: 10.0.0.0/16
+      Tags:
+        - Key: Name
+          Value: fast-aws-rh-sg
+
+  SecurityGroupSelfIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref SecurityGroup
+      IpProtocol: -1
+      SourceSecurityGroupId: !Ref SecurityGroup
+
+  # IAM Policies
+  STONITHPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub 'STONITHPolicy-${AWS::StackName}'
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: Stmt1424870324000
+            Effect: Allow
+            Action:
+              - ec2:DescribeInstances
+              - ec2:DescribeInstanceAttribute
+              - ec2:DescribeTags
+            Resource: '*'
+          - Sid: Stmt1424870324001
+            Effect: Allow
+            Action:
+              - ec2:ModifyInstanceAttribute
+              - ec2:RebootInstances
+              - ec2:StartInstances
+              - ec2:StopInstances
+            Resource: '*'
+
+  ClusterEIPPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub 'ClusterEIPPolicy-${AWS::StackName}'
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: VisualEditor0
+            Effect: Allow
+            Action:
+              - ec2:DisassociateAddress
+              - ec2:DescribeAddresses
+              - ec2:DescribeAddressesAttribute
+              - ec2:AssociateAddress
+            Resource: '*'
+
+  # IAM Role
+  ClusterRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'ClusterRole-${AWS::StackName}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Ref STONITHPolicy
+        - !Ref ClusterEIPPolicy
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+  ClusterInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref ClusterRole
+
+  # EC2 Instances
+  Instance1:
+    Type: AWS::EC2::Instance
+    Properties:
+      # RHEL_HA-9.6.0_HVM-20250730-x86_64-0-Hourly2-GP3
+      ImageId: ami-0d162462982d5efe3
+      InstanceType: t3.medium
+      SubnetId: !Ref SubnetB
+      SecurityGroupIds:
+        - !Ref SecurityGroup
+      IamInstanceProfile: !Ref ClusterInstanceProfile
+      SourceDestCheck: false
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          # Enable SSH password authentication for RHEL9
+          echo "PasswordAuthentication yes" | sudo tee /etc/ssh/sshd_config.d/50-cloud-init.conf
+          sudo systemctl restart sshd
+          
+          # Create haadm user with password
+          sudo useradd haadm
+          echo "haadm:testtest" | sudo chpasswd
+          
+          # Add haadm to sudoers without password
+          echo "haadm ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/haadm
+          
+          # Update system to latest version
+          sudo dnf update -y
+          sudo dnf install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
+          sudo dnf install -y rhel-system-roles unzip wget bash-completion
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip awscliv2.zip
+          sudo ./aws/install
+          aws configure set region ap-northeast-2
+          sudo sed -i 's/SELINUX=enforcing/SELINUX=disabled/g' /etc/selinux/config
+          sudo reboot
+      Tags:
+        - Key: Name
+          Value: fast-aws-rh-cl-1
+
+  Instance2:
+    Type: AWS::EC2::Instance
+    Properties:
+      # RHEL_HA-9.6.0_HVM-20250730-x86_64-0-Hourly2-GP3
+      ImageId: ami-0d162462982d5efe3
+      InstanceType: t3.medium
+      SubnetId: !If [UseSameSubnet, !Ref SubnetB, !Ref SubnetD]
+      SecurityGroupIds:
+        - !Ref SecurityGroup
+      IamInstanceProfile: !Ref ClusterInstanceProfile
+      SourceDestCheck: false
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          # Enable SSH password authentication for RHEL9
+          echo "PasswordAuthentication yes" | sudo tee /etc/ssh/sshd_config.d/50-cloud-init.conf
+          sudo systemctl restart sshd
+          
+          # Create haadm user with password
+          sudo useradd haadm
+          echo "haadm:testtest" | sudo chpasswd
+          
+          # Add haadm to sudoers without password
+          echo "haadm ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/haadm
+          
+          # Update system to latest version
+          sudo dnf update -y
+          sudo dnf install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
+          sudo dnf install -y rhel-system-roles unzip wget bash-completion
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip awscliv2.zip
+          sudo ./aws/install
+          aws configure set region ap-northeast-2
+          sudo sed -i 's/SELINUX=enforcing/SELINUX=disabled/g' /etc/selinux/config
+          sudo reboot
+      Tags:
+        - Key: Name
+          Value: fast-aws-rh-cl-2
+
+Outputs:
+  VPCId:
+    Description: VPC ID
+    Value: !Ref VPC
+  
+  Instance1Id:
+    Description: Instance 1 ID
+    Value: !Ref Instance1
+    
+  Instance2Id:
+    Description: Instance 2 ID
+    Value: !Ref Instance2
+    
+  SubnetConfiguration:
+    Description: Subnet configuration used
+    Value: !If [UseSameSubnet, 'Same subnet (SubnetB)', 'Different subnets (SubnetB and SubnetD)']
