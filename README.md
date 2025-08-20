@@ -131,7 +131,7 @@ aws ssm send-command \
 ## File Structure
 
 ```
-pcs_automation/
+rhel.ha-cluster_pacemaker_on_aws/
 ├── deployment.yaml                 # CloudFormation template
 ├── ha-cluster-setup-document.json  # SSM document
 ├── README.md                       # This file
