@@ -110,7 +110,7 @@ aws ssm send-command \
 ### 자동화된 구성
 - **시스템 업데이트**: 최신 패키지로 자동 업데이트
 - **사용자 생성**: haadm 계정 자동 생성
-- **SSH 설정**: 패스워드 인증 활성화
+- **인스턴스 연결**: Session Manager 를 사용하도록 설정
 - **필수 패키지**: rhel-system-roles, AWS CLI, 기타 도구 설치
 
 ### HA 클러스터 설정

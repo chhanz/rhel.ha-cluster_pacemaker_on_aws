@@ -110,7 +110,7 @@ aws ssm send-command \
 ### Automated Configuration
 - **System Updates**: Automatic update to latest packages
 - **User Creation**: Automatic haadm account creation
-- **SSH Configuration**: Enable password authentication
+- **Connect the Instance **: Configure to use Session Manager
 - **Required Packages**: Install rhel-system-roles, AWS CLI, and other tools
 
 ### HA Cluster Setup
